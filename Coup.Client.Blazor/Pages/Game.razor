@@ -1,0 +1,328 @@
+@page "/game"
+@using Coup.Shared
+@using Coup.Client.Blazor.Services
+@inject GameService GameService
+@inject NavigationManager Navigation
+@implements IDisposable
+
+<PageTitle>Coup - Game</PageTitle>
+
+<div class="game-container">
+    @if (!_isInGame)
+    {
+        <div class="lobby-join">
+            <h1>🎴 Coup Game</h1>
+            <div class="join-form">
+                <input @bind="_playerName" placeholder="Your Name" class="input-field" />
+                <input @bind="_gameId" placeholder="Game ID (default: room1)" class="input-field" />
+                <button @onclick="JoinGame" class="btn btn-primary">Join Game</button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="game-board">
+            <!-- Header -->
+            <div class="game-header">
+                <h2>Game: @GameService.CurrentGame.GameId</h2>
+                <div class="game-status">
+                    <span class="badge @(GameService.CurrentGame.GameStarted ? "badge-success" : "badge-warning")">
+                        @(GameService.CurrentGame.GameStarted ? (GameService.CurrentGame.GameEnded ? "Ended" : "In Progress") : "Waiting")
+                    </span>
+                    @if (!string.IsNullOrEmpty(GameService.CurrentGame.WinnerName))
+                    {
+                        <span class="badge badge-gold">🏆 Winner: @GameService.CurrentGame.WinnerName</span>
+                    }
+                </div>
+            </div>
+
+            <!-- Error Message -->
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <div class="alert alert-error">@_errorMessage</div>
+            }
+
+            <!-- Players -->
+            <div class="players-section">
+                <h3>Players</h3>
+                <div class="players-grid">
+                    @foreach (var (player, index) in GameService.CurrentGame.Players.Select((p, i) => (p, i)))
+                    {
+                        var isCurrentPlayer = index == GameService.CurrentGame.CurrentPlayerIndex;
+                        var isMe = player.Name == GameService.MyName;
+                        <div class="player-card @(isMe ? "player-me" : "") @(isCurrentPlayer ? "player-current" : "") @(player.IsAlive ? "" : "player-dead")">
+                            <div class="player-name">
+                                @if (isCurrentPlayer) { <span class="turn-indicator">▶</span> }
+                                [@index] @player.Name
+                                @if (player.ConnectionId == GameService.CurrentGame.HostConnectionId) { <span class="host-badge">👑</span> }
+                            </div>
+                            <div class="player-stats">
+                                <span class="coins">💰 @player.Coins</span>
+                                <span class="influence">❤️ @player.InfluenceCount</span>
+                            </div>
+                            @if (!player.IsAlive)
+                            {
+                                <span class="dead-mark">☠️</span>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- My Info -->
+            @if (GameService.GetMe() != null)
+            {
+                <div class="my-info">
+                    <h3>Your Hand</h3>
+                    <div class="my-roles">
+                        @if (GameService.MyRoles.Any())
+                        {
+                            @foreach (var role in GameService.MyRoles)
+                            {
+                                <div class="role-card">@GetRoleIcon(role) @role</div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="no-roles">No roles yet</div>
+                        }
+                    </div>
+                    <div class="my-stats">
+                        <span>💰 Coins: @GameService.GetMe()!.Coins</span>
+                        <span>❤️ Influence: @GameService.GetMe()!.InfluenceCount</span>
+                    </div>
+                </div>
+            }
+
+            <!-- Pending Action -->
+            @if (GameService.CurrentGame.Pending != null)
+            {
+                var pending = GameService.CurrentGame.Pending;
+                var actor = GameService.CurrentGame.Players.FirstOrDefault(p => p.ConnectionId == pending.ActorConnectionId);
+                <div class="pending-action">
+                    <h4>⏳ Pending Action</h4>
+                    <p><strong>@actor?.Name</strong> claims <strong>@pending.ClaimedRole</strong> to perform <strong>@pending.Action</strong></p>
+                    @if (GameService.IsMyTurn() || !GameService.CurrentGame.GameStarted)
+                    {
+                        <!-- Can respond -->
+                    }
+                    else
+                    {
+                        <div class="action-buttons">
+                            <button @onclick="Challenge" class="btn btn-danger">Challenge</button>
+                            <button @onclick="Pass" class="btn btn-secondary">Pass</button>
+                        </div>
+                    }
+                </div>
+            }
+
+            <!-- Choose Card to Lose -->
+            @if (GameService.MustChooseCard)
+            {
+                <div class="choose-card">
+                    <h4>⚠️ Choose a Card to Lose</h4>
+                    <p>@GameService.ChooseCardReason</p>
+                    <div class="role-buttons">
+                        @foreach (var role in GameService.MyRoles)
+                        {
+                            <button @onclick="() => ChooseCard(role)" class="btn btn-role">
+                                @GetRoleIcon(role) @role
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Actions -->
+            @if (GameService.IsMyTurn() && !GameService.MustChooseCard)
+            {
+                <div class="actions-section">
+                    <h3>Your Turn - Choose Action</h3>
+                    <div class="actions-grid">
+                        <button @onclick="() => PerformAction(ActionType.Income, null)" class="btn btn-action">
+                            💵 Income (+1)
+                        </button>
+                        <button @onclick="() => PerformAction(ActionType.ForeignAid, null)" class="btn btn-action">
+                            🌍 Foreign Aid (+2)
+                        </button>
+                        <button @onclick="() => PerformAction(ActionType.Tax, null)" class="btn btn-action">
+                            🏛️ Tax (Duke, +3)
+                        </button>
+                        <button @onclick="() => PerformAction(ActionType.Exchange, null)" class="btn btn-action">
+                            🔄 Exchange (Ambassador)
+                        </button>
+                    </div>
+                    <div class="targeted-actions">
+                        <h4>Target Player:</h4>
+                        @foreach (var (player, index) in GameService.CurrentGame.Players.Select((p, i) => (p, i)))
+                        {
+                            if (player.Name != GameService.MyName && player.IsAlive)
+                            {
+                                <div class="target-actions">
+                                    <span class="target-name">[@index] @player.Name</span>
+                                    <button @onclick="() => PerformAction(ActionType.Coup, player.ConnectionId)" class="btn btn-sm btn-coup" disabled="@(GameService.GetMe()!.Coins < 7)">
+                                        ⚔️ Coup (7 coins)
+                                    </button>
+                                    <button @onclick="() => PerformAction(ActionType.Assassinate, player.ConnectionId)" class="btn btn-sm btn-assassinate" disabled="@(GameService.GetMe()!.Coins < 3)">
+                                        🗡️ Assassinate (3 coins)
+                                    </button>
+                                    <button @onclick="() => PerformAction(ActionType.Steal, player.ConnectionId)" class="btn btn-sm btn-steal">
+                                        💰 Steal (Captain)
+                                    </button>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Game Controls -->
+            <div class="game-controls">
+                @if (!GameService.CurrentGame.GameStarted && GameService.IsHost())
+                {
+                    <button @onclick="StartGame" class="btn btn-success btn-lg">▶️ Start Game</button>
+                }
+                @if (GameService.CurrentGame.GameEnded && GameService.IsHost())
+                {
+                    <button @onclick="Rematch" class="btn btn-primary btn-lg">🔄 Rematch</button>
+                }
+            </div>
+
+            <!-- Game Log -->
+            <div class="game-log">
+                <h3>Game Log</h3>
+                <div class="log-entries">
+                    @foreach (var entry in GameService.CurrentGame.Log.TakeLast(15))
+                    {
+                        <div class="log-entry">• @entry</div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool _isInGame = false;
+    private string _playerName = "";
+    private string _gameId = "room1";
+    private string _errorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        GameService.OnGameStateChanged += StateHasChanged;
+        GameService.OnRolesReceived += StateHasChanged;
+        GameService.OnError += ShowError;
+        GameService.OnChooseInfluence += OnChooseInfluence;
+
+        await GameService.ConnectAsync();
+    }
+
+    private async Task JoinGame()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_playerName))
+                _playerName = $"Player_{Random.Shared.Next(1000, 9999)}";
+
+            if (string.IsNullOrWhiteSpace(_gameId))
+                _gameId = "room1";
+
+            await GameService.JoinLobbyAsync(_gameId, _playerName);
+            _isInGame = true;
+            _errorMessage = "";
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error joining game: {ex.Message}";
+        }
+    }
+
+    private async Task StartGame()
+    {
+        try
+        {
+            await GameService.StartGameAsync(GameService.CurrentGame.GameId);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error starting game: {ex.Message}";
+        }
+    }
+
+    private async Task Rematch()
+    {
+        try
+        {
+            await GameService.RematchAsync(GameService.CurrentGame.GameId);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error starting rematch: {ex.Message}";
+        }
+    }
+
+    private async Task PerformAction(ActionType action, string? targetConnectionId)
+    {
+        try
+        {
+            await GameService.PerformActionAsync(new ActionDto
+            {
+                Action = action,
+                TargetConnectionId = targetConnectionId
+            });
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error performing action: {ex.Message}";
+        }
+    }
+
+    private async Task Challenge()
+    {
+        await GameService.ChallengeAsync();
+    }
+
+    private async Task Pass()
+    {
+        await GameService.PassPendingAsync();
+    }
+
+    private async Task ChooseCard(Role role)
+    {
+        await GameService.ChooseCardToLoseAsync(role);
+        StateHasChanged();
+    }
+
+    private void ShowError(string message)
+    {
+        _errorMessage = message;
+        StateHasChanged();
+    }
+
+    private void OnChooseInfluence(string message)
+    {
+        StateHasChanged();
+    }
+
+    private string GetRoleIcon(Role role)
+    {
+        return role switch
+        {
+            Role.Duke => "🏛️",
+            Role.Assassin => "🗡️",
+            Role.Captain => "⚓",
+            Role.Ambassador => "🌍",
+            Role.Contessa => "👸",
+            _ => "❓"
+        };
+    }
+
+    public void Dispose()
+    {
+        GameService.OnGameStateChanged -= StateHasChanged;
+        GameService.OnRolesReceived -= StateHasChanged;
+        GameService.OnError -= ShowError;
+        GameService.OnChooseInfluence -= OnChooseInfluence;
+    }
+}

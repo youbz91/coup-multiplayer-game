@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet new:*)",
+      "Bash(dotnet add:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(if exist nul del /f nul)",
+      "Bash(del nul)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

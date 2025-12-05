@@ -1,0 +1,8 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>   <!-- ou net9.0 -->
+    <Nullable>enable</Nullable>                  <!-- active string? etc. -->
+    <LangVersion>latest</LangVersion>            <!-- C# 12, ok pour 8+ -->
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+</Project>
