@@ -549,6 +549,177 @@
     cursor: not-allowed;
 }
 
+/* Card Flip Animations */
+.card-flip {
+    animation: cardFlip 0.6s ease-in-out;
+}
+
+@keyframes cardFlip {
+    0% {
+        transform: rotateY(0deg) scale(1);
+    }
+    50% {
+        transform: rotateY(90deg) scale(1.1);
+    }
+    100% {
+        transform: rotateY(0deg) scale(1);
+    }
+}
+
+.card-reveal {
+    animation: cardReveal 0.8s ease-out;
+}
+
+@keyframes cardReveal {
+    0% {
+        transform: scale(0) rotateY(180deg);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.2) rotateY(90deg);
+    }
+    100% {
+        transform: scale(1) rotateY(0deg);
+        opacity: 1;
+    }
+}
+
+.card-loss {
+    animation: cardLoss 0.8s ease-in forwards;
+}
+
+@keyframes cardLoss {
+    0% {
+        transform: scale(1) rotateX(0deg);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.1) rotateX(90deg);
+        opacity: 0.5;
+    }
+    100% {
+        transform: scale(0.8) rotateX(180deg) translateY(20px);
+        opacity: 0;
+    }
+}
+
+/* Action Effect Animations */
+.coin-gain {
+    animation: coinGain 0.6s ease-out;
+}
+
+@keyframes coinGain {
+    0% {
+        transform: scale(1);
+        color: inherit;
+    }
+    50% {
+        transform: scale(1.5);
+        color: #ffd700;
+        text-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+    }
+    100% {
+        transform: scale(1);
+        color: inherit;
+    }
+}
+
+.coin-loss {
+    animation: coinLoss 0.6s ease-out;
+}
+
+@keyframes coinLoss {
+    0% {
+        transform: scale(1);
+        color: inherit;
+    }
+    50% {
+        transform: scale(0.7);
+        color: #f44336;
+        text-shadow: 0 0 20px rgba(244, 67, 54, 0.6);
+    }
+    100% {
+        transform: scale(1);
+        color: inherit;
+    }
+}
+
+.influence-loss {
+    animation: influenceLoss 0.8s ease-out;
+}
+
+@keyframes influenceLoss {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    25% {
+        transform: scale(1.2);
+        color: #ff0000;
+    }
+    50% {
+        transform: scale(0.9) rotate(-5deg);
+    }
+    75% {
+        transform: scale(1.1) rotate(5deg);
+        opacity: 0.5;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.action-success {
+    animation: actionSuccess 0.5s ease-out;
+}
+
+@keyframes actionSuccess {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+        box-shadow: 0 0 20px rgba(76, 175, 80, 0.6);
+    }
+}
+
+.action-blocked {
+    animation: actionBlocked 0.5s ease-out;
+}
+
+@keyframes actionBlocked {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    25% {
+        transform: translateX(-10px);
+    }
+    75% {
+        transform: translateX(10px);
+    }
+}
+
+.floating-text {
+    position: absolute;
+    font-weight: bold;
+    font-size: 1.2em;
+    pointer-events: none;
+    animation: floatUp 1.5s ease-out forwards;
+    z-index: 1000;
+}
+
+@keyframes floatUp {
+    0% {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(-100px) scale(1.5);
+        opacity: 0;
+    }
+}
+
 /* Confirmation Modal */
 .modal-overlay {
     position: fixed;
@@ -623,16 +794,138 @@
 
 /* Responsive */
 @media (max-width: 768px) {
+    .game-container {
+        padding: 10px;
+    }
+
     .players-grid {
         grid-template-columns: 1fr;
+        gap: 10px;
     }
 
     .actions-grid {
         grid-template-columns: 1fr;
+        gap: 10px;
     }
 
     .game-header {
         flex-direction: column;
         gap: 10px;
+    }
+
+    /* Larger touch targets for mobile */
+    .btn {
+        min-height: 44px; /* iOS minimum touch target */
+        font-size: 1em;
+        padding: 12px 20px;
+    }
+
+    .btn-sm {
+        min-height: 40px;
+        font-size: 0.9em;
+        padding: 10px 15px;
+    }
+
+    /* Exchange cards - stack vertically on mobile */
+    .exchange-cards {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .btn-exchange-card {
+        min-width: 100%;
+        padding: 25px;
+    }
+
+    .btn-exchange-card .card-icon {
+        font-size: 4em;
+    }
+
+    /* Modal - full width on small screens */
+    .modal-content {
+        width: 95%;
+        padding: 20px;
+    }
+
+    /* Pending timer - larger on mobile */
+    .timer-text {
+        font-size: 1.3em;
+    }
+
+    .timer-bar {
+        height: 35px;
+    }
+
+    /* Role cards - larger on mobile */
+    .role-card {
+        font-size: 1.2em;
+        padding: 12px 20px;
+    }
+
+    /* Action buttons - full width */
+    .target-actions {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .target-actions .btn {
+        width: 100%;
+    }
+
+    /* Players section - more compact */
+    .player-card {
+        padding: 12px;
+    }
+
+    /* Game log - smaller on mobile */
+    .game-log {
+        padding: 15px;
+        font-size: 0.9em;
+    }
+}
+
+/* Extra small devices */
+@media (max-width: 480px) {
+    .game-container {
+        padding: 5px;
+    }
+
+    .btn {
+        font-size: 0.9em;
+        padding: 10px 15px;
+    }
+
+    .modal-content h3 {
+        font-size: 1.3em;
+    }
+
+    .btn-exchange-card .card-icon {
+        font-size: 3em;
+    }
+
+    .players-grid {
+        gap: 8px;
+    }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+    /* Remove hover effects on touch devices */
+    .btn:hover {
+        transform: none;
+    }
+
+    .btn-exchange-card:hover {
+        transform: none;
+    }
+
+    /* Add active states instead */
+    .btn:active {
+        transform: scale(0.95);
+        opacity: 0.8;
+    }
+
+    .btn-exchange-card:active {
+        transform: scale(0.95);
     }
 }

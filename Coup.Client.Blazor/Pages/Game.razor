@@ -2,6 +2,7 @@
 @using Coup.Shared
 @using Coup.Client.Blazor.Services
 @inject GameService GameService
+@inject AudioService AudioService
 @inject NavigationManager Navigation
 @implements IDisposable
 
@@ -79,7 +80,7 @@
                         {
                             @foreach (var role in GameService.MyRoles)
                             {
-                                <div class="role-card">@GetRoleIcon(role) @role</div>
+                                <div class="role-card card-reveal">@GetRoleIcon(role) @role</div>
                             }
                         }
                         else
@@ -88,8 +89,8 @@
                         }
                     </div>
                     <div class="my-stats">
-                        <span>💰 Coins: @GameService.GetMe()!.Coins</span>
-                        <span>❤️ Influence: @GameService.GetMe()!.InfluenceCount</span>
+                        <span class="@_coinAnimationClass">💰 Coins: @GameService.GetMe()!.Coins</span>
+                        <span class="@_influenceAnimationClass">❤️ Influence: @GameService.GetMe()!.InfluenceCount</span>
                     </div>
                 </div>
             }
@@ -237,7 +238,7 @@
                         @foreach (var (card, index) in GameService.ExchangeAvailableCards.Select((c, i) => (c, i)))
                         {
                             var isSelected = _selectedExchangeCards.Contains(card);
-                            var buttonClass = isSelected ? "btn-exchange-card selected" : "btn-exchange-card";
+                            var buttonClass = isSelected ? "btn-exchange-card selected card-flip" : "btn-exchange-card card-reveal";
                             <button @onclick="() => ToggleExchangeCard(card)" class="@buttonClass">
                                 <div class="card-icon">@GetRoleIcon(card)</div>
                                 <div class="card-name">@card</div>
@@ -368,9 +369,15 @@
     private string _pendingTargetId = "";
     private string _pendingTargetName = "";
 
+    // Animation state
+    private string _coinAnimationClass = "";
+    private string _influenceAnimationClass = "";
+    private int _previousCoins = 0;
+    private int _previousInfluence = 0;
+
     protected override async Task OnInitializedAsync()
     {
-        GameService.OnGameStateChanged += StateHasChanged;
+        GameService.OnGameStateChanged += OnGameStateChangedHandler;
         GameService.OnRolesReceived += StateHasChanged;
         GameService.OnError += ShowError;
         GameService.OnChooseInfluence += OnChooseInfluence;
@@ -383,6 +390,38 @@
         {
             InvokeAsync(StateHasChanged);
         }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    private void OnGameStateChangedHandler()
+    {
+        // Trigger animations and sounds based on changes
+        var me = GameService.GetMe();
+        if (me != null)
+        {
+            // Check coin changes
+            if (_previousCoins != 0 && me.Coins != _previousCoins)
+            {
+                _coinAnimationClass = me.Coins > _previousCoins ? "coin-gain" : "coin-loss";
+                _ = Task.Delay(600).ContinueWith(_ => InvokeAsync(() => { _coinAnimationClass = ""; StateHasChanged(); }));
+
+                // Play sound
+                _ = me.Coins > _previousCoins ? AudioService.PlayCoinGainAsync() : AudioService.PlayCoinLossAsync();
+            }
+            _previousCoins = me.Coins;
+
+            // Check influence changes
+            if (_previousInfluence != 0 && me.InfluenceCount != _previousInfluence)
+            {
+                _influenceAnimationClass = "influence-loss";
+                _ = Task.Delay(800).ContinueWith(_ => InvokeAsync(() => { _influenceAnimationClass = ""; StateHasChanged(); }));
+
+                // Play sound
+                _ = AudioService.PlayInfluenceLossAsync();
+            }
+            _previousInfluence = me.InfluenceCount;
+        }
+
+        StateHasChanged();
     }
 
     private async Task JoinGame()
@@ -433,6 +472,7 @@
     {
         try
         {
+            await AudioService.PlayClickAsync();
             await GameService.PerformActionAsync(new ActionDto
             {
                 Action = action,
@@ -447,6 +487,7 @@
 
     private async Task Challenge()
     {
+        await AudioService.PlayChallengeAsync();
         await GameService.ChallengeAsync();
     }
 
@@ -569,7 +610,7 @@
 
     public void Dispose()
     {
-        GameService.OnGameStateChanged -= StateHasChanged;
+        GameService.OnGameStateChanged -= OnGameStateChangedHandler;
         GameService.OnRolesReceived -= StateHasChanged;
         GameService.OnError -= ShowError;
         GameService.OnChooseInfluence -= OnChooseInfluence;
