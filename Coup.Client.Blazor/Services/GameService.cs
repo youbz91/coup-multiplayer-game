@@ -6,6 +6,8 @@ namespace Coup.Client.Blazor.Services;
 public class GameService : IAsyncDisposable
 {
     private HubConnection? _hubConnection;
+    // TODO: For production, update this URL to your deployed server
+    // Example: "https://your-coup-server.azurewebsites.net/couphub"
     private readonly string _hubUrl = "http://localhost:5076/couphub";
 
     public GameState CurrentGame { get; private set; } = new();
