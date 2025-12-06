@@ -101,6 +101,22 @@
                 var me = GameService.GetMe();
 
                 <div class="pending-action">
+                    <!-- Timer for any pending action -->
+                    @if (GameService.CurrentGame.PendingStartTime.HasValue)
+                    {
+                        var elapsed = (DateTime.UtcNow - GameService.CurrentGame.PendingStartTime.Value).TotalSeconds;
+                        var remaining = Math.Max(0, 30 - elapsed);
+                        var percentage = (remaining / 30.0) * 100;
+                        var timerClass = remaining < 10 ? "timer-warning" : "";
+
+                        <div class="pending-timer @timerClass">
+                            <div class="timer-bar">
+                                <div class="timer-fill" style="width: @percentage%"></div>
+                            </div>
+                            <div class="timer-text">⏱️ @((int)remaining)s remaining</div>
+                        </div>
+                    }
+
                     @if (pending.Phase == PendingPhase.ActionClaim)
                     {
                         <!-- PHASE 1: Someone is performing an action -->
@@ -211,6 +227,38 @@
                 </div>
             }
 
+            <!-- Exchange Card Selection -->
+            @if (GameService.MustChooseExchangeCards)
+            {
+                <div class="exchange-selection">
+                    <h4>🔄 Choose Cards to Keep</h4>
+                    <p>Select @GameService.ExchangeCardsToKeep card(s) to keep. The rest will be returned to the deck.</p>
+                    <div class="exchange-cards">
+                        @foreach (var (card, index) in GameService.ExchangeAvailableCards.Select((c, i) => (c, i)))
+                        {
+                            var isSelected = _selectedExchangeCards.Contains(card);
+                            var buttonClass = isSelected ? "btn-exchange-card selected" : "btn-exchange-card";
+                            <button @onclick="() => ToggleExchangeCard(card)" class="@buttonClass">
+                                <div class="card-icon">@GetRoleIcon(card)</div>
+                                <div class="card-name">@card</div>
+                                @if (isSelected)
+                                {
+                                    <div class="selected-badge">✓</div>
+                                }
+                            </button>
+                        }
+                    </div>
+                    <div class="exchange-actions">
+                        <p>Selected: @_selectedExchangeCards.Count / @GameService.ExchangeCardsToKeep</p>
+                        <button @onclick="SubmitExchangeCards"
+                                class="btn btn-primary"
+                                disabled="@(_selectedExchangeCards.Count != GameService.ExchangeCardsToKeep)">
+                            Confirm Selection
+                        </button>
+                    </div>
+                </div>
+            }
+
             <!-- Actions -->
             @if (GameService.IsMyTurn() && !GameService.MustChooseCard)
             {
@@ -238,10 +286,10 @@
                             {
                                 <div class="target-actions">
                                     <span class="target-name">[@index] @player.Name</span>
-                                    <button @onclick="() => PerformAction(ActionType.Coup, player.ConnectionId)" class="btn btn-sm btn-coup" disabled="@(GameService.GetMe()!.Coins < 7)">
+                                    <button @onclick="() => ShowConfirmation(ActionType.Coup, player.ConnectionId, player.Name)" class="btn btn-sm btn-coup" disabled="@(GameService.GetMe()!.Coins < 7)">
                                         ⚔️ Coup (7 coins)
                                     </button>
-                                    <button @onclick="() => PerformAction(ActionType.Assassinate, player.ConnectionId)" class="btn btn-sm btn-assassinate" disabled="@(GameService.GetMe()!.Coins < 3)">
+                                    <button @onclick="() => ShowConfirmation(ActionType.Assassinate, player.ConnectionId, player.Name)" class="btn btn-sm btn-assassinate" disabled="@(GameService.GetMe()!.Coins < 3)">
                                         🗡️ Assassinate (3 coins)
                                     </button>
                                     <button @onclick="() => PerformAction(ActionType.Steal, player.ConnectionId)" class="btn btn-sm btn-steal">
@@ -278,6 +326,32 @@
             </div>
         </div>
     }
+
+    <!-- Confirmation Modal -->
+    @if (_showConfirmation)
+    {
+        <div class="modal-overlay" @onclick="CancelConfirmation">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <h3>⚠️ Confirm Action</h3>
+                <p>
+                    @if (_pendingAction == ActionType.Coup)
+                    {
+                        <strong>Are you sure you want to Coup @_pendingTargetName?</strong><br />
+                        <span class="confirmation-details">This will cost 7 coins and cannot be challenged or blocked.</span>
+                    }
+                    else if (_pendingAction == ActionType.Assassinate)
+                    {
+                        <strong>Are you sure you want to Assassinate @_pendingTargetName?</strong><br />
+                        <span class="confirmation-details">This will cost 3 coins. It can be blocked by Contessa.</span>
+                    }
+                </p>
+                <div class="modal-actions">
+                    <button @onclick="ConfirmAction" class="btn btn-danger">✓ Confirm</button>
+                    <button @onclick="CancelConfirmation" class="btn btn-secondary">✗ Cancel</button>
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 @code {
@@ -285,6 +359,14 @@
     private string _playerName = "";
     private string _gameId = "room1";
     private string _errorMessage = "";
+    private List<Role> _selectedExchangeCards = new();
+    private System.Threading.Timer? _uiTimer;
+
+    // Confirmation dialog state
+    private bool _showConfirmation = false;
+    private ActionType _pendingAction;
+    private string _pendingTargetId = "";
+    private string _pendingTargetName = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -292,8 +374,15 @@
         GameService.OnRolesReceived += StateHasChanged;
         GameService.OnError += ShowError;
         GameService.OnChooseInfluence += OnChooseInfluence;
+        GameService.OnChooseExchangeCards += OnChooseExchangeCards;
 
         await GameService.ConnectAsync();
+
+        // Start UI refresh timer for countdown updates
+        _uiTimer = new System.Threading.Timer(_ =>
+        {
+            InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
     }
 
     private async Task JoinGame()
@@ -403,6 +492,68 @@
         StateHasChanged();
     }
 
+    private void OnChooseExchangeCards()
+    {
+        _selectedExchangeCards.Clear();
+        StateHasChanged();
+    }
+
+    private void ToggleExchangeCard(Role card)
+    {
+        if (_selectedExchangeCards.Contains(card))
+        {
+            _selectedExchangeCards.Remove(card);
+        }
+        else
+        {
+            if (_selectedExchangeCards.Count < GameService.ExchangeCardsToKeep)
+            {
+                _selectedExchangeCards.Add(card);
+            }
+        }
+        StateHasChanged();
+    }
+
+    private async Task SubmitExchangeCards()
+    {
+        if (_selectedExchangeCards.Count == GameService.ExchangeCardsToKeep)
+        {
+            try
+            {
+                await GameService.SubmitExchangeCardsAsync(new List<Role>(_selectedExchangeCards));
+                _selectedExchangeCards.Clear();
+                _errorMessage = "";
+            }
+            catch (Exception ex)
+            {
+                _errorMessage = $"Error submitting cards: {ex.Message}";
+            }
+        }
+    }
+
+    private void ShowConfirmation(ActionType action, string targetId, string targetName)
+    {
+        _pendingAction = action;
+        _pendingTargetId = targetId;
+        _pendingTargetName = targetName;
+        _showConfirmation = true;
+    }
+
+    private async Task ConfirmAction()
+    {
+        _showConfirmation = false;
+        await PerformAction(_pendingAction, _pendingTargetId);
+        _pendingTargetId = "";
+        _pendingTargetName = "";
+    }
+
+    private void CancelConfirmation()
+    {
+        _showConfirmation = false;
+        _pendingTargetId = "";
+        _pendingTargetName = "";
+    }
+
     private string GetRoleIcon(Role role)
     {
         return role switch
@@ -422,5 +573,7 @@
         GameService.OnRolesReceived -= StateHasChanged;
         GameService.OnError -= ShowError;
         GameService.OnChooseInfluence -= OnChooseInfluence;
+        GameService.OnChooseExchangeCards -= OnChooseExchangeCards;
+        _uiTimer?.Dispose();
     }
 }

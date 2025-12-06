@@ -17,11 +17,17 @@ public class GameService : IAsyncDisposable
     public bool MustChooseCard { get; private set; }
     public string ChooseCardReason { get; private set; } = "";
 
+    // Exchange card selection
+    public bool MustChooseExchangeCards { get; private set; }
+    public List<Role> ExchangeAvailableCards { get; private set; } = new();
+    public int ExchangeCardsToKeep { get; private set; }
+
     // Events
     public event Action? OnGameStateChanged;
     public event Action? OnRolesReceived;
     public event Action<string>? OnError;
     public event Action<string>? OnChooseInfluence;
+    public event Action? OnChooseExchangeCards;
 
     public async Task ConnectAsync()
     {
@@ -63,6 +69,14 @@ public class GameService : IAsyncDisposable
             MustChooseCard = true;
             ChooseCardReason = message;
             OnChooseInfluence?.Invoke(message);
+        });
+
+        _hubConnection.On<List<Role>, int>("ChooseExchangeCards", (availableCards, cardsToKeep) =>
+        {
+            MustChooseExchangeCards = true;
+            ExchangeAvailableCards = availableCards;
+            ExchangeCardsToKeep = cardsToKeep;
+            OnChooseExchangeCards?.Invoke();
         });
 
         _hubConnection.On("YourTurn", () =>
@@ -140,6 +154,15 @@ public class GameService : IAsyncDisposable
         await _hubConnection.InvokeAsync("ChooseCardToLose", role);
         MustChooseCard = false;
         ChooseCardReason = "";
+    }
+
+    public async Task SubmitExchangeCardsAsync(List<Role> chosenCards)
+    {
+        if (_hubConnection == null) throw new InvalidOperationException("Not connected");
+        await _hubConnection.InvokeAsync("SubmitExchangeCards", chosenCards);
+        MustChooseExchangeCards = false;
+        ExchangeAvailableCards = new();
+        ExchangeCardsToKeep = 0;
     }
 
     public bool IsMyTurn()

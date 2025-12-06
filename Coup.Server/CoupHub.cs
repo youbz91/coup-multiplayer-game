@@ -928,7 +928,7 @@ namespace Coup.Server
 
             if (p.Action == ActionType.Exchange)
             {
-                // Claim validé, exécuter l'échange
+                // Claim validé, entrer en phase de sélection de cartes
                 var actor = game.Players.FirstOrDefault(x => x.ConnectionId == p.ActorConnectionId);
                 if (actor != null && actor.IsAlive && _store.GameDecks.TryGetValue(gameId, out var deck))
                 {
@@ -947,38 +947,21 @@ namespace Coup.Server
                         var allCards = new List<Role>(currentRoles);
                         allCards.AddRange(drawnCards);
 
-                        // Mélanger toutes les cartes pour un échange aléatoire
-                        var rngShuffle = Random.Shared;
-                        for (int i = allCards.Count - 1; i > 0; i--)
-                        {
-                            int j = rngShuffle.Next(i + 1);
-                            (allCards[i], allCards[j]) = (allCards[j], allCards[i]);
-                        }
+                        // Entrer en phase de sélection de cartes
+                        p.Phase = PendingPhase.ExchangeCardSelection;
+                        p.ExchangeAvailableCards = allCards;
+                        p.ExchangeCardsToKeep = actor.InfluenceCount;
 
-                        // Garder autant de cartes que le joueur a d'influence
-                        int cardsToKeep = Math.Min(actor.InfluenceCount, allCards.Count);
-                        var keptCards = allCards.Take(cardsToKeep).ToList();
-                        var returnedCards = allCards.Skip(cardsToKeep).ToList();
+                        game.Log.Add($"{actor.Name} is choosing cards to keep (Ambassador exchange)...");
+                        await Clients.Group(gameId).SendAsync("GameStateUpdated", game);
 
-                        // Retourner les cartes non gardées au deck
-                        deck.AddRange(returnedCards);
-
-                        // Shuffle le deck
-                        var rng = Random.Shared;
-                        for (int i = deck.Count - 1; i > 0; i--)
-                        {
-                            int j = rng.Next(i + 1);
-                            (deck[i], deck[j]) = (deck[j], deck[i]);
-                        }
-
-                        // Mettre à jour les rôles du joueur
-                        _store.PlayerRoles[actor.ConnectionId] = keptCards;
-                        await Clients.Client(actor.ConnectionId).SendAsync("YourRoles", keptCards);
-
-                        game.Log.Add($"{actor.Name} exchanges roles (Ambassador).");
+                        // Envoyer les cartes disponibles au joueur pour qu'il choisisse
+                        await Clients.Client(actor.ConnectionId).SendAsync("ChooseExchangeCards", allCards, actor.InfluenceCount);
+                        return;
                     }
                 }
 
+                // Si erreur, annuler le pending
                 game.Pending = null;
                 game.PendingStartTime = null;
                 AdvanceTurn(game);
@@ -1461,6 +1444,99 @@ namespace Coup.Server
             await Clients.Group(gameId).SendAsync("GameStateUpdated", game);
             var nextPlayer = game.Players[game.CurrentPlayerIndex];
             await Clients.Client(nextPlayer.ConnectionId).SendAsync("YourTurn");
+        }
+
+        public async Task SubmitExchangeCards(List<Role> chosenCards)
+        {
+            try
+            {
+                if (!_store.ConnectionToGame.TryGetValue(Context.ConnectionId, out var gameId)) return;
+                if (!_store.Games.TryGetValue(gameId, out var game)) return;
+
+                if (game.Pending == null || game.Pending.Phase != PendingPhase.ExchangeCardSelection)
+                {
+                    await Clients.Caller.SendAsync("Error", "No card selection in progress");
+                    return;
+                }
+
+                var p = game.Pending;
+                if (p.ActorConnectionId != Context.ConnectionId)
+                {
+                    await Clients.Caller.SendAsync("Error", "Only the actor can choose cards");
+                    return;
+                }
+
+                var actor = game.Players.FirstOrDefault(x => x.ConnectionId == Context.ConnectionId);
+                if (actor == null || !actor.IsAlive)
+                {
+                    await Clients.Caller.SendAsync("Error", "Invalid player state");
+                    return;
+                }
+
+                // Validate the chosen cards
+                if (chosenCards == null || chosenCards.Count != p.ExchangeCardsToKeep)
+                {
+                    await Clients.Caller.SendAsync("Error", $"You must choose exactly {p.ExchangeCardsToKeep} cards");
+                    return;
+                }
+
+                // Validate all chosen cards are from available cards
+                if (p.ExchangeAvailableCards == null)
+                {
+                    await Clients.Caller.SendAsync("Error", "Invalid exchange state");
+                    return;
+                }
+
+                foreach (var card in chosenCards)
+                {
+                    if (!p.ExchangeAvailableCards.Contains(card))
+                    {
+                        await Clients.Caller.SendAsync("Error", "Invalid card selection");
+                        return;
+                    }
+                }
+
+                // Process the exchange
+                if (_store.GameDecks.TryGetValue(gameId, out var deck))
+                {
+                    // Determine which cards to return to deck
+                    var returnedCards = new List<Role>(p.ExchangeAvailableCards);
+                    foreach (var chosenCard in chosenCards)
+                    {
+                        returnedCards.Remove(chosenCard);
+                    }
+
+                    // Return unchosen cards to deck
+                    deck.AddRange(returnedCards);
+
+                    // Shuffle the deck
+                    var rng = Random.Shared;
+                    for (int i = deck.Count - 1; i > 0; i--)
+                    {
+                        int j = rng.Next(i + 1);
+                        (deck[i], deck[j]) = (deck[j], deck[i]);
+                    }
+
+                    // Update player's roles
+                    _store.PlayerRoles[Context.ConnectionId] = new List<Role>(chosenCards);
+                    await Clients.Client(Context.ConnectionId).SendAsync("YourRoles", chosenCards);
+
+                    game.Log.Add($"{actor.Name} completes exchange (Ambassador).");
+                }
+
+                // Clear pending and advance turn
+                game.Pending = null;
+                game.PendingStartTime = null;
+                AdvanceTurn(game);
+                await Clients.Group(gameId).SendAsync("GameStateUpdated", game);
+                var next = game.Players[game.CurrentPlayerIndex];
+                await Clients.Client(next.ConnectionId).SendAsync("YourTurn");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in SubmitExchangeCards for connection {ConnectionId}", Context.ConnectionId);
+                await Clients.Caller.SendAsync("Error", "An error occurred while submitting your card choice. Please try again.");
+            }
         }
 
         public async Task BlockPendingContessa()

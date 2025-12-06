@@ -6,7 +6,7 @@ namespace Coup.Shared
 {
     public enum Role { Duke, Assassin, Captain, Ambassador, Contessa }
     public enum ActionType { Income, ForeignAid, Coup, Tax, Assassinate, Steal, Exchange }
-    public enum PendingPhase { ActionClaim, BlockClaim }
+    public enum PendingPhase { ActionClaim, BlockClaim, ExchangeCardSelection }
     public class PlayerState
     {
         public string ConnectionId { get; set; } = "";
@@ -64,6 +64,10 @@ namespace Coup.Shared
         public string? BlockerConnectionId { get; set; }
         public Role? BlockClaimedRole { get; set; }
         public HashSet<string> BlockResponded { get; set; } = new();
+
+        // Exchange card selection
+        public List<Role>? ExchangeAvailableCards { get; set; }
+        public int ExchangeCardsToKeep { get; set; }
     }
 
     public class PendingInfluenceLoss

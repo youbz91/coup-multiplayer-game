@@ -401,6 +401,226 @@
     color: #333;
 }
 
+/* Pending Action Timer */
+.pending-timer {
+    margin-bottom: 15px;
+}
+
+.timer-bar {
+    height: 30px;
+    background: rgba(255,255,255,0.3);
+    border-radius: 15px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.timer-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4caf50 0%, #8bc34a 100%);
+    transition: width 0.3s ease;
+    box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+}
+
+.timer-warning .timer-fill {
+    background: linear-gradient(90deg, #ff5722 0%, #ff9800 100%);
+    box-shadow: 0 0 10px rgba(255, 87, 34, 0.7);
+    animation: pulse 0.5s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+.timer-text {
+    text-align: center;
+    margin-top: 5px;
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.timer-warning .timer-text {
+    color: #ff5722;
+    animation: pulse 0.5s infinite;
+}
+
+/* Exchange Card Selection */
+.exchange-selection {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
+    margin: 20px 0;
+    color: white;
+}
+
+.exchange-selection h4 {
+    margin: 0 0 10px 0;
+    font-size: 1.3em;
+}
+
+.exchange-selection p {
+    margin: 0 0 15px 0;
+    opacity: 0.9;
+}
+
+.exchange-cards {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin: 20px 0;
+    flex-wrap: wrap;
+}
+
+.btn-exchange-card {
+    background: white;
+    color: #333;
+    border: 3px solid transparent;
+    border-radius: 12px;
+    padding: 20px;
+    min-width: 120px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-exchange-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+}
+
+.btn-exchange-card.selected {
+    border-color: #4caf50;
+    background: #e8f5e9;
+    box-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
+}
+
+.btn-exchange-card .card-icon {
+    font-size: 3em;
+}
+
+.btn-exchange-card .card-name {
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.btn-exchange-card .selected-badge {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: #4caf50;
+    color: white;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+.exchange-actions {
+    text-align: center;
+    margin-top: 15px;
+}
+
+.exchange-actions p {
+    margin-bottom: 10px;
+    font-size: 1.1em;
+    font-weight: bold;
+}
+
+.exchange-actions .btn {
+    padding: 12px 30px;
+    font-size: 1.1em;
+}
+
+.exchange-actions .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Confirmation Modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.modal-content {
+    background: white;
+    padding: 30px;
+    border-radius: 16px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-content h3 {
+    margin: 0 0 15px 0;
+    color: #d32f2f;
+}
+
+.modal-content p {
+    margin: 0 0 20px 0;
+    font-size: 1.1em;
+}
+
+.confirmation-details {
+    color: #666;
+    font-size: 0.9em;
+    display: block;
+    margin-top: 8px;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: flex-end;
+}
+
+.modal-actions .btn {
+    min-width: 100px;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .players-grid {
