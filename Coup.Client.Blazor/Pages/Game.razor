@@ -98,20 +98,98 @@
             @if (GameService.CurrentGame.Pending != null)
             {
                 var pending = GameService.CurrentGame.Pending;
-                var actor = GameService.CurrentGame.Players.FirstOrDefault(p => p.ConnectionId == pending.ActorConnectionId);
+                var me = GameService.GetMe();
+
                 <div class="pending-action">
-                    <h4>⏳ Pending Action</h4>
-                    <p><strong>@actor?.Name</strong> claims <strong>@pending.ClaimedRole</strong> to perform <strong>@pending.Action</strong></p>
-                    @if (GameService.IsMyTurn() || !GameService.CurrentGame.GameStarted)
+                    @if (pending.Phase == PendingPhase.ActionClaim)
                     {
-                        <!-- Can respond -->
+                        <!-- PHASE 1: Someone is performing an action -->
+                        var actor = GameService.CurrentGame.Players.FirstOrDefault(p => p.ConnectionId == pending.ActorConnectionId);
+                        var isMyAction = me != null && pending.ActorConnectionId == me.ConnectionId;
+
+                        <h4>⏳ Pending Action</h4>
+                        <p><strong>@actor?.Name</strong> claims <strong>@pending.ClaimedRole</strong> to perform <strong>@pending.Action</strong></p>
+
+                        @if (!isMyAction)
+                        {
+                            <div class="action-buttons">
+                                <!-- Always show Challenge and Pass -->
+                                <button @onclick="Challenge" class="btn btn-danger">⚔️ Challenge</button>
+                                <button @onclick="Pass" class="btn btn-secondary">👍 Pass</button>
+
+                                <!-- Show block buttons based on action type (only in ActionClaim phase) -->
+                                @if (pending.Action == ActionType.ForeignAid)
+                                {
+                                    <button @onclick="BlockDuke" class="btn btn-block-duke">🏛️ Block (Duke)</button>
+                                }
+                                @if (pending.Action == ActionType.Assassinate)
+                                {
+                                    <button @onclick="BlockContessa" class="btn btn-block-contessa">👸 Block (Contessa)</button>
+                                }
+                                @if (pending.Action == ActionType.Steal)
+                                {
+                                    <button @onclick="BlockCaptain" class="btn btn-block-captain">⚓ Block (Captain)</button>
+                                    <button @onclick="BlockAmbassador" class="btn btn-block-ambassador">🌍 Block (Ambassador)</button>
+                                }
+                            </div>
+
+                            @if (pending.Responded != null)
+                            {
+                                var otherPlayers = GameService.CurrentGame.Players.Where(p => p.IsAlive && p.ConnectionId != pending.ActorConnectionId).ToList();
+                                var waiting = otherPlayers.Where(p => !pending.Responded.Contains(p.ConnectionId)).Select(p => p.Name).ToList();
+
+                                @if (waiting.Any())
+                                {
+                                    <p class="waiting-text"><em>Waiting for: @string.Join(", ", waiting)</em></p>
+                                }
+                                else
+                                {
+                                    <p class="waiting-text"><em>All players responded. Action will auto-resolve...</em></p>
+                                }
+                            }
+                        }
+                        else
+                        {
+                            <p class="waiting-text"><em>Waiting for other players to respond...</em></p>
+                        }
                     }
-                    else
+                    else if (pending.Phase == PendingPhase.BlockClaim)
                     {
-                        <div class="action-buttons">
-                            <button @onclick="Challenge" class="btn btn-danger">Challenge</button>
-                            <button @onclick="Pass" class="btn btn-secondary">Pass</button>
-                        </div>
+                        <!-- PHASE 2: Someone is blocking an action (THIS WAS MISSING!) -->
+                        var blocker = GameService.CurrentGame.Players.FirstOrDefault(p => p.ConnectionId == pending.BlockerConnectionId);
+                        var actor = GameService.CurrentGame.Players.FirstOrDefault(p => p.ConnectionId == pending.ActorConnectionId);
+                        var isMyBlock = me != null && pending.BlockerConnectionId == me.ConnectionId;
+
+                        <h4>🛡️ Block Claim</h4>
+                        <p><strong>@blocker?.Name</strong> claims <strong>@pending.BlockClaimedRole</strong> to block <strong>@actor?.Name</strong>'s <strong>@pending.Action</strong></p>
+
+                        @if (!isMyBlock)
+                        {
+                            <div class="action-buttons">
+                                <!-- Others can challenge the block claim or pass -->
+                                <button @onclick="Challenge" class="btn btn-danger">⚔️ Challenge Block</button>
+                                <button @onclick="Pass" class="btn btn-secondary">👍 Pass</button>
+                            </div>
+
+                            @if (pending.BlockResponded != null)
+                            {
+                                var otherPlayers = GameService.CurrentGame.Players.Where(p => p.IsAlive && p.ConnectionId != pending.BlockerConnectionId).ToList();
+                                var waiting = otherPlayers.Where(p => !pending.BlockResponded.Contains(p.ConnectionId)).Select(p => p.Name).ToList();
+
+                                @if (waiting.Any())
+                                {
+                                    <p class="waiting-text"><em>Waiting for: @string.Join(", ", waiting)</em></p>
+                                }
+                                else
+                                {
+                                    <p class="waiting-text"><em>All players responded. Block will auto-resolve...</em></p>
+                                }
+                            }
+                        }
+                        else
+                        {
+                            <p class="waiting-text"><em>Waiting for other players to respond to your block...</em></p>
+                        }
                     }
                 </div>
             }
@@ -286,6 +364,26 @@
     private async Task Pass()
     {
         await GameService.PassPendingAsync();
+    }
+
+    private async Task BlockDuke()
+    {
+        await GameService.BlockDukeAsync();
+    }
+
+    private async Task BlockContessa()
+    {
+        await GameService.BlockContessaAsync();
+    }
+
+    private async Task BlockCaptain()
+    {
+        await GameService.BlockWithRoleAsync(Role.Captain);
+    }
+
+    private async Task BlockAmbassador()
+    {
+        await GameService.BlockWithRoleAsync(Role.Ambassador);
     }
 
     private async Task ChooseCard(Role role)

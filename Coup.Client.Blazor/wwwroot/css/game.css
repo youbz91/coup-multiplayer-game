@@ -204,12 +204,26 @@
     border: 2px solid #ffc107;
     padding: 20px;
     border-radius: 12px;
+    transition: all 0.3s;
+}
+
+/* Block Claim - different color to distinguish from action claim */
+.pending-action:has(h4:contains("Block")) {
+    background-color: #e1f5fe;
+    border-color: #03a9f4;
 }
 
 .action-buttons {
     display: flex;
     gap: 10px;
     margin-top: 15px;
+    flex-wrap: wrap;
+}
+
+.waiting-text {
+    margin-top: 10px;
+    color: #666;
+    font-style: italic;
 }
 
 /* Choose Card */
@@ -335,6 +349,26 @@
 
 .btn-steal {
     background-color: #f57c00;
+    color: white;
+}
+
+.btn-block-duke {
+    background-color: #5e35b1;
+    color: white;
+}
+
+.btn-block-contessa {
+    background-color: #c2185b;
+    color: white;
+}
+
+.btn-block-captain {
+    background-color: #0277bd;
+    color: white;
+}
+
+.btn-block-ambassador {
+    background-color: #00897b;
     color: white;
 }
 
