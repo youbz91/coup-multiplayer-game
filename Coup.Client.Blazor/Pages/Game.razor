@@ -34,6 +34,7 @@
                     {
                         <span class="badge badge-gold">🏆 Winner: @GameService.CurrentGame.WinnerName</span>
                     }
+                    <button @onclick="() => _showSettings = true" class="btn btn-sm btn-secondary">⚙️ Settings</button>
                 </div>
             </div>
 
@@ -78,9 +79,17 @@
                     <div class="my-roles">
                         @if (GameService.MyRoles.Any())
                         {
-                            @foreach (var role in GameService.MyRoles)
+                            @foreach (var (role, index) in GameService.MyRoles.Select((r, i) => (r, i)))
                             {
-                                <div class="role-card card-reveal">@GetRoleIcon(role) @role</div>
+                                <div class="card-image-container card-hearthstone-enter card-glow" style="animation-delay: @(index * 0.2)s;">
+                                    <img src="@GetCardImagePath(role)" alt="@role" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+                                    <div class="role-card card-reveal" style="display: none;">@GetRoleIcon(role) @role</div>
+                                    <!-- Sparkles -->
+                                    <div class="sparkle" style="top: 10%; left: 20%; animation-delay: 0s;"></div>
+                                    <div class="sparkle" style="top: 20%; right: 15%; animation-delay: 0.3s;"></div>
+                                    <div class="sparkle" style="bottom: 25%; left: 15%; animation-delay: 0.6s;"></div>
+                                    <div class="sparkle" style="bottom: 15%; right: 20%; animation-delay: 0.9s;"></div>
+                                </div>
                             }
                         }
                         else
@@ -353,6 +362,93 @@
             </div>
         </div>
     }
+
+    <!-- Settings Modal -->
+    @if (_showSettings)
+    {
+        <div class="modal-overlay" @onclick="() => _showSettings = false">
+            <div class="modal-content settings-modal" @onclick:stopPropagation="true">
+                <h3>⚙️ Settings</h3>
+
+                <!-- Audio Settings -->
+                <div class="settings-section">
+                    <h4>🔊 Audio</h4>
+                    <div class="setting-item">
+                        <label>Sound Effects</label>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="soundToggle" checked="@AudioService.SoundEnabled"
+                                   @onchange="@((e) => AudioService.SoundEnabled = (bool)e.Value!)" />
+                            <span class="slider"></span>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <label>Volume: @((int)(AudioService.Volume * 100))%</label>
+                        <input type="range" min="0" max="100" value="@((int)(AudioService.Volume * 100))"
+                               @oninput="@((e) => AudioService.Volume = int.Parse(e.Value!.ToString()!) / 100.0)"
+                               class="volume-slider" />
+                    </div>
+                </div>
+
+                <!-- Visual Settings -->
+                <div class="settings-section">
+                    <h4>🎨 Visual</h4>
+                    <div class="setting-item">
+                        <label>Animations</label>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="animToggle" checked="@_animationsEnabled"
+                                   @onchange="@((e) => _animationsEnabled = (bool)e.Value!)" />
+                            <span class="slider"></span>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <label>Particle Effects</label>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="particlesToggle" checked="@_particlesEnabled"
+                                   @onchange="@((e) => _particlesEnabled = (bool)e.Value!)" />
+                            <span class="slider"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button @onclick="() => _showSettings = false" class="btn btn-primary">Close</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Victory Screen -->
+    @if (GameService.CurrentGame.GameEnded && !string.IsNullOrEmpty(GameService.CurrentGame.WinnerName))
+    {
+        var isWinner = GameService.CurrentGame.WinnerName == GameService.MyName;
+        <div class="victory-overlay @(isWinner ? "victory" : "defeat")">
+            <div class="victory-content">
+                @if (isWinner)
+                {
+                    <h1 class="victory-title">🏆 VICTORY! 🏆</h1>
+                    <div class="confetti"></div>
+                    <div class="confetti" style="animation-delay: 0.1s;"></div>
+                    <div class="confetti" style="animation-delay: 0.2s;"></div>
+                    <div class="confetti" style="animation-delay: 0.3s;"></div>
+                }
+                else
+                {
+                    <h1 class="defeat-title">Defeat</h1>
+                }
+                <p class="victory-subtitle">@GameService.CurrentGame.WinnerName wins the game!</p>
+                <div class="victory-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">Game Duration</span>
+                        <span class="stat-value">@GameService.CurrentGame.TurnCount turns</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Your Result</span>
+                        <span class="stat-value">@(isWinner ? "Winner" : "Defeated")</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 @code {
@@ -374,6 +470,11 @@
     private string _influenceAnimationClass = "";
     private int _previousCoins = 0;
     private int _previousInfluence = 0;
+
+    // Settings state
+    private bool _showSettings = false;
+    private bool _animationsEnabled = true;
+    private bool _particlesEnabled = true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -606,6 +707,12 @@
             Role.Contessa => "👸",
             _ => "❓"
         };
+    }
+
+    private string GetCardImagePath(Role role)
+    {
+        var roleName = role.ToString().ToLower();
+        return $"images/cards/{roleName}.png";
     }
 
     public void Dispose()
