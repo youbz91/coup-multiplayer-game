@@ -165,6 +165,19 @@ public class GameService : IAsyncDisposable
         ExchangeCardsToKeep = 0;
     }
 
+    // Bot management methods
+    public async Task AddBotAsync(string gameId, BotDifficulty difficulty, BotPersonality personality)
+    {
+        if (_hubConnection == null) throw new InvalidOperationException("Not connected");
+        await _hubConnection.InvokeAsync("AddBot", gameId, difficulty, personality);
+    }
+
+    public async Task RemoveBotAsync(string gameId, string botConnectionId)
+    {
+        if (_hubConnection == null) throw new InvalidOperationException("Not connected");
+        await _hubConnection.InvokeAsync("RemoveBot", gameId, botConnectionId);
+    }
+
     public bool IsMyTurn()
     {
         var me = CurrentGame.Players.FirstOrDefault(p => p.Name == MyName);

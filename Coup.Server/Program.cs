@@ -35,6 +35,12 @@ builder.Services.AddHostedService<GameTimeoutService>();
 // Background service for cleaning up old games
 builder.Services.AddHostedService<GameCleanupService>();
 
+// Bot AI services
+builder.Services.AddSingleton<Coup.Server.AI.EasyBotStrategy>();
+builder.Services.AddSingleton<Coup.Server.Services.BotActionExecutor>();
+builder.Services.AddSingleton<Coup.Server.Services.BotDecisionEngine>();
+builder.Services.AddHostedService<Coup.Server.Services.BotOrchestrationService>();
+
 var app = builder.Build();
 
 app.UseCors();

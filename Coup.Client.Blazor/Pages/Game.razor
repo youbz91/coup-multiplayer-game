@@ -52,11 +52,12 @@
                     {
                         var isCurrentPlayer = index == GameService.CurrentGame.CurrentPlayerIndex;
                         var isMe = player.Name == GameService.MyName;
-                        <div class="player-card @(isMe ? "player-me" : "") @(isCurrentPlayer ? "player-current" : "") @(player.IsAlive ? "" : "player-dead")">
+                        <div class="player-card @(isMe ? "player-me" : "") @(isCurrentPlayer ? "player-current" : "") @(player.IsAlive ? "" : "player-dead") @(player.IsBot ? "bot-player" : "")">
                             <div class="player-name">
                                 @if (isCurrentPlayer) { <span class="turn-indicator">▶</span> }
                                 [@index] @player.Name
                                 @if (player.ConnectionId == GameService.CurrentGame.HostConnectionId) { <span class="host-badge">👑</span> }
+                                @if (player.IsBot) { <span class="bot-badge">🤖 BOT</span> }
                             </div>
                             <div class="player-stats">
                                 <span class="coins">💰 @player.Coins</span>
@@ -312,6 +313,44 @@
                 </div>
             }
 
+            <!-- Bot Controls (Host Only, Pre-Game) -->
+            @if (!GameService.CurrentGame.GameStarted && GameService.IsHost())
+            {
+                <div class="bot-controls-section">
+                    <h3>🤖 Bot Players</h3>
+                    <div class="bot-add-form">
+                        <select @bind="_selectedDifficulty" class="bot-select">
+                            <option value="Easy">Easy</option>
+                            <option value="Medium">Medium (Recommended)</option>
+                            <option value="Hard">Hard</option>
+                        </select>
+                        <select @bind="_selectedPersonality" class="bot-select">
+                            <option value="Balanced">Balanced</option>
+                            <option value="Aggressive">Aggressive</option>
+                            <option value="Defensive">Defensive</option>
+                            <option value="Bluffer">Bluffer</option>
+                            <option value="Honest">Honest</option>
+                        </select>
+                        <button @onclick="AddBot" class="btn btn-primary">➕ Add Bot</button>
+                    </div>
+
+                    @* Display current bots *@
+                    @if (GameService.CurrentGame.Players.Any(p => p.IsBot))
+                    {
+                        <div class="bot-list">
+                            @foreach (var bot in GameService.CurrentGame.Players.Where(p => p.IsBot))
+                            {
+                                <div class="bot-card">
+                                    <span class="bot-icon">🤖</span>
+                                    <span class="bot-name">@bot.Name</span>
+                                    <button @onclick="() => RemoveBot(bot.ConnectionId)" class="btn-remove">✖</button>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+
             <!-- Game Controls -->
             <div class="game-controls">
                 @if (!GameService.CurrentGame.GameStarted && GameService.IsHost())
@@ -475,6 +514,10 @@
     private bool _showSettings = false;
     private bool _animationsEnabled = true;
     private bool _particlesEnabled = true;
+
+    // Bot state
+    private string _selectedDifficulty = "Medium";
+    private string _selectedPersonality = "Balanced";
 
     protected override async Task OnInitializedAsync()
     {
@@ -713,6 +756,43 @@
     {
         var roleName = role.ToString().ToLower();
         return $"images/cards/{roleName}.png";
+    }
+
+    // Bot management methods
+    private async Task AddBot()
+    {
+        try
+        {
+            if (!Enum.TryParse<BotDifficulty>(_selectedDifficulty, out var difficulty))
+            {
+                difficulty = BotDifficulty.Medium;
+            }
+
+            if (!Enum.TryParse<BotPersonality>(_selectedPersonality, out var personality))
+            {
+                personality = BotPersonality.Balanced;
+            }
+
+            await GameService.AddBotAsync(GameService.CurrentGame.GameId, difficulty, personality);
+            await AudioService.PlayClickAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to add bot: {ex.Message}";
+        }
+    }
+
+    private async Task RemoveBot(string botConnectionId)
+    {
+        try
+        {
+            await GameService.RemoveBotAsync(GameService.CurrentGame.GameId, botConnectionId);
+            await AudioService.PlayClickAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to remove bot: {ex.Message}";
+        }
     }
 
     public void Dispose()

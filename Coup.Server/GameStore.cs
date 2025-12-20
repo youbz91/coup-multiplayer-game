@@ -9,6 +9,7 @@ namespace Coup.Server
         public ConcurrentDictionary<string, string> ConnectionToGame { get; } = new();
         public ConcurrentDictionary<string, List<Role>> PlayerRoles { get; } = new();
         public ConcurrentDictionary<string, List<Role>> GameDecks { get; } = new(); // Deck restant pour chaque partie (pour Exchange)
+        public ConcurrentDictionary<string, BotConfig> BotConfigs { get; } = new(); // Bot configurations (keyed by bot ConnectionId)
 
         /// <summary>
         /// Cleans up all game data from memory to prevent memory leaks
@@ -27,6 +28,12 @@ namespace Coup.Server
                     {
                         ConnectionToGame.TryRemove(player.ConnectionId, out _);
                         PlayerRoles.TryRemove(player.ConnectionId, out _);
+
+                        // Clean up bot configs
+                        if (player.IsBot)
+                        {
+                            BotConfigs.TryRemove(player.ConnectionId, out _);
+                        }
                     }
                 }
             }
