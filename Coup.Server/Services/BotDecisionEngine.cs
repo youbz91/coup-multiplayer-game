@@ -93,14 +93,9 @@ public class BotDecisionEngine
             if (pending.BlockerConnectionId != botConnectionId &&
                 !pending.BlockResponded.Contains(botConnectionId))
             {
-                if (strategy.ShouldChallengeBlock(ctx))
-                {
-                    await _executor.ExecuteChallengeAsync(gameId, botConnectionId);
-                }
-                else
-                {
-                    await _executor.ExecutePassAsync(gameId, botConnectionId);
-                }
+                // TODO: Implement challenge logic when needed
+                // For now, bots always pass on block claims
+                await _executor.ExecutePassAsync(gameId, botConnectionId);
             }
         }
         else if (pending.Phase == PendingPhase.ActionClaim)
@@ -125,14 +120,9 @@ public class BotDecisionEngine
             if (pending.ActorConnectionId != botConnectionId &&
                 !pending.Responded.Contains(botConnectionId))
             {
-                if (strategy.ShouldChallenge(ctx))
-                {
-                    await _executor.ExecuteChallengeAsync(gameId, botConnectionId);
-                }
-                else
-                {
-                    await _executor.ExecutePassAsync(gameId, botConnectionId);
-                }
+                // TODO: Implement challenge logic when needed
+                // For now, bots always pass on action claims
+                await _executor.ExecutePassAsync(gameId, botConnectionId);
             }
         }
     }

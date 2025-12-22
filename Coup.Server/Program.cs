@@ -35,6 +35,9 @@ builder.Services.AddHostedService<GameTimeoutService>();
 // Background service for cleaning up old games
 builder.Services.AddHostedService<GameCleanupService>();
 
+// Game action service (used by both regular hub and bots)
+builder.Services.AddSingleton<Coup.Server.Services.GameActionService>();
+
 // Bot AI services
 builder.Services.AddSingleton<Coup.Server.AI.EasyBotStrategy>();
 builder.Services.AddSingleton<Coup.Server.Services.BotActionExecutor>();

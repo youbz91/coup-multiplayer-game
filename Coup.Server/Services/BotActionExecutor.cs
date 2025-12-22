@@ -4,25 +4,29 @@ using Microsoft.AspNetCore.SignalR;
 namespace Coup.Server.Services;
 
 /// <summary>
-/// Executes bot actions by using a wrapper hub instance.
-/// This allows bots to call hub methods with their synthetic ConnectionId.
+/// Executes bot actions by using the game action service.
+/// This allows bots to perform actions without needing SignalR connections.
 /// </summary>
 public class BotActionExecutor
 {
-    private readonly CoupHub _hub;
+    private readonly GameActionService _gameActions;
     private readonly GameStore _store;
 
-    public BotActionExecutor(CoupHub hub, GameStore store)
+    public BotActionExecutor(GameActionService gameActions, GameStore store)
     {
-        _hub = hub;
+        _gameActions = gameActions;
         _store = store;
     }
 
     /// <summary>
-    /// Executes a bot action by calling the hub method with bot context
+    /// Executes a bot action by calling the game action service
     /// </summary>
     public async Task ExecuteActionAsync(string gameId, string botConnectionId, ActionType action, Role? claimedRole, string? targetConnectionId)
     {
+        if (!_store.Games.TryGetValue(gameId, out var game)) return;
+        var bot = game.Players.FirstOrDefault(p => p.ConnectionId == botConnectionId);
+        if (bot == null) return;
+
         var actionDto = new ActionDto
         {
             Action = action,
@@ -30,15 +34,7 @@ public class BotActionExecutor
             TargetConnectionId = targetConnectionId
         };
 
-        await _hub.PerformActionForBot(gameId, botConnectionId, actionDto);
-    }
-
-    /// <summary>
-    /// Executes a challenge from a bot
-    /// </summary>
-    public async Task ExecuteChallengeAsync(string gameId, string botConnectionId)
-    {
-        await _hub.ChallengeForBot(gameId, botConnectionId);
+        await _gameActions.PerformActionAsync(game, bot, actionDto, gameId);
     }
 
     /// <summary>
@@ -46,7 +42,11 @@ public class BotActionExecutor
     /// </summary>
     public async Task ExecutePassAsync(string gameId, string botConnectionId)
     {
-        await _hub.PassPendingForBot(gameId, botConnectionId);
+        if (!_store.Games.TryGetValue(gameId, out var game)) return;
+        var bot = game.Players.FirstOrDefault(p => p.ConnectionId == botConnectionId);
+        if (bot == null) return;
+
+        await _gameActions.PassPendingAsync(game, bot, gameId);
     }
 
     /// <summary>
@@ -54,7 +54,11 @@ public class BotActionExecutor
     /// </summary>
     public async Task ExecuteBlockDukeAsync(string gameId, string botConnectionId)
     {
-        await _hub.BlockDukeForBot(gameId, botConnectionId);
+        if (!_store.Games.TryGetValue(gameId, out var game)) return;
+        var bot = game.Players.FirstOrDefault(p => p.ConnectionId == botConnectionId);
+        if (bot == null) return;
+
+        await _gameActions.BlockDukeAsync(game, bot, gameId);
     }
 
     /// <summary>
@@ -62,7 +66,11 @@ public class BotActionExecutor
     /// </summary>
     public async Task ExecuteBlockContessaAsync(string gameId, string botConnectionId)
     {
-        await _hub.BlockPendingContessaForBot(gameId, botConnectionId);
+        if (!_store.Games.TryGetValue(gameId, out var game)) return;
+        var bot = game.Players.FirstOrDefault(p => p.ConnectionId == botConnectionId);
+        if (bot == null) return;
+
+        await _gameActions.BlockContessaAsync(game, bot, gameId);
     }
 
     /// <summary>
@@ -70,7 +78,11 @@ public class BotActionExecutor
     /// </summary>
     public async Task ExecuteBlockCaptainAmbassadorAsync(string gameId, string botConnectionId, Role role)
     {
-        await _hub.BlockCaptainAmbassadorForBot(gameId, botConnectionId, role);
+        if (!_store.Games.TryGetValue(gameId, out var game)) return;
+        var bot = game.Players.FirstOrDefault(p => p.ConnectionId == botConnectionId);
+        if (bot == null) return;
+
+        await _gameActions.BlockCaptainAmbassadorAsync(game, bot, role, gameId);
     }
 
     /// <summary>
@@ -78,7 +90,11 @@ public class BotActionExecutor
     /// </summary>
     public async Task ExecuteChooseCardToLoseAsync(string gameId, string botConnectionId, Role role)
     {
-        await _hub.ChooseCardToLoseForBot(gameId, botConnectionId, role);
+        if (!_store.Games.TryGetValue(gameId, out var game)) return;
+        var bot = game.Players.FirstOrDefault(p => p.ConnectionId == botConnectionId);
+        if (bot == null) return;
+
+        await _gameActions.ChooseCardToLoseAsync(game, bot, role, gameId);
     }
 
     /// <summary>
@@ -86,6 +102,10 @@ public class BotActionExecutor
     /// </summary>
     public async Task ExecuteExchangeCardsAsync(string gameId, string botConnectionId, List<Role> chosenCards)
     {
-        await _hub.SubmitExchangeCardsForBot(gameId, botConnectionId, chosenCards);
+        if (!_store.Games.TryGetValue(gameId, out var game)) return;
+        var bot = game.Players.FirstOrDefault(p => p.ConnectionId == botConnectionId);
+        if (bot == null) return;
+
+        await _gameActions.SubmitExchangeCardsAsync(game, bot, chosenCards, gameId);
     }
 }
