@@ -100,10 +100,10 @@ public class GameService : IAsyncDisposable
         await _hubConnection.InvokeAsync("JoinLobby", gameId, playerName);
     }
 
-    public async Task StartGameAsync(string gameId)
+    public async Task StartGameAsync(string gameId, string variantName = "Standard")
     {
         if (_hubConnection == null) throw new InvalidOperationException("Not connected");
-        await _hubConnection.InvokeAsync("StartGame", gameId);
+        await _hubConnection.InvokeAsync("StartGame", gameId, variantName);
     }
 
     public async Task RematchAsync(string gameId)

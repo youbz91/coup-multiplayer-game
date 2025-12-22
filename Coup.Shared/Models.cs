@@ -37,6 +37,7 @@ namespace Coup.Shared
         public DateTime? GameStartTime { get; set; } = null;
         public DateTime? PendingStartTime { get; set; } = null; // Pour le timeout
         public int TurnCount { get; set; } = 0;
+        public GameVariant Variant { get; set; } = GameVariant.Standard;
 
         public PlayerState? CurrentPlayer =>
             (Players.Count == 0) ? null : Players.ElementAtOrDefault(CurrentPlayerIndex);

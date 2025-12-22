@@ -138,7 +138,7 @@ namespace Coup.Server
             return sanitized.ToString().Trim();
         }
 
-        public async Task StartGame(string gameId)
+        public async Task StartGame(string gameId, string variantName = "Standard")
         {
             if (!_store.Games.TryGetValue(gameId, out var game)) return;
 
@@ -156,6 +156,17 @@ namespace Coup.Server
                 await Clients.Caller.SendAsync("Error", "Need at least 2 connected players to start");
                 return;
             }
+
+            // Get the selected variant
+            GameVariant variant = variantName switch
+            {
+                "Speed" => GameVariant.SpeedCoup,
+                "Rich" => GameVariant.RichMode,
+                "Chaos" => GameVariant.ChaosMode,
+                _ => GameVariant.Standard
+            };
+            game.Variant = variant;
+
             // Build deck (3 of each role)
             var deck = new List<Role>();
             foreach (Role r in Enum.GetValues(typeof(Role)))
@@ -172,11 +183,11 @@ namespace Coup.Server
                 (deck[i], deck[j]) = (deck[j], deck[i]);
             }
 
-            // Deal 2 roles to each connected alive player, store them privately
+            // Deal roles to each connected alive player based on variant's starting influence
             foreach (var p in game.Players.Where(p => p.IsAlive && p.IsConnected))
             {
                 var roles = new List<Role>();
-                for (int k = 0; k < ROLES_PER_PLAYER; k++)
+                for (int k = 0; k < variant.StartingInfluence; k++)
                 {
                     var top = deck[^1];
                     deck.RemoveAt(deck.Count - 1);
@@ -184,6 +195,7 @@ namespace Coup.Server
                 }
                 _store.PlayerRoles[p.ConnectionId] = roles;
                 p.InfluenceCount = roles.Count;
+                p.Coins = variant.StartingCoins; // Apply variant starting coins
 
                  await Clients.Client(p.ConnectionId).SendAsync("YourRoles", roles);
             }
@@ -985,7 +997,8 @@ namespace Coup.Server
             if (game.Pending == null || game.PendingStartTime == null) return false;
 
             var elapsed = DateTime.UtcNow - game.PendingStartTime.Value;
-            if (elapsed.TotalSeconds < PENDING_ACTION_TIMEOUT_SECONDS) return false;
+            var timeoutSeconds = game.Variant?.ActionTimeoutSeconds ?? PENDING_ACTION_TIMEOUT_SECONDS;
+            if (elapsed.TotalSeconds < timeoutSeconds) return false;
 
             // Timeout expiré, résoudre automatiquement
             game.Log.Add($"Timeout: pending action auto-resolved (no response).");

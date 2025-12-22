@@ -52,11 +52,14 @@ namespace Coup.Server
                 var gameId = kvp.Key;
                 var game = kvp.Value;
 
+                // Get timeout from variant (fallback to default if not set)
+                var timeoutSeconds = game.Variant?.ActionTimeoutSeconds ?? PENDING_ACTION_TIMEOUT_SECONDS;
+
                 // Check for PendingInfluenceLoss timeout
                 if (game.PendingInfluenceLoss != null)
                 {
                     var elapsed = DateTime.UtcNow - game.PendingInfluenceLoss.StartTime;
-                    if (elapsed.TotalSeconds >= PENDING_ACTION_TIMEOUT_SECONDS)
+                    if (elapsed.TotalSeconds >= timeoutSeconds)
                     {
                         await ProcessInfluenceLossTimeout(gameId, game);
                         continue;
@@ -68,7 +71,7 @@ namespace Coup.Server
                     continue;
 
                 var actionElapsed = DateTime.UtcNow - game.PendingStartTime.Value;
-                if (actionElapsed.TotalSeconds < PENDING_ACTION_TIMEOUT_SECONDS)
+                if (actionElapsed.TotalSeconds < timeoutSeconds)
                     continue;
 
                 // Timeout expired - process it

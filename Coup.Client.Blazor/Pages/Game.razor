@@ -115,9 +115,10 @@
                     <!-- Timer for any pending action -->
                     @if (GameService.CurrentGame.PendingStartTime.HasValue)
                     {
+                        var timeoutSeconds = GameService.CurrentGame.Variant?.ActionTimeoutSeconds ?? 30;
                         var elapsed = (DateTime.UtcNow - GameService.CurrentGame.PendingStartTime.Value).TotalSeconds;
-                        var remaining = Math.Max(0, 30 - elapsed);
-                        var percentage = (remaining / 30.0) * 100;
+                        var remaining = Math.Max(0, timeoutSeconds - elapsed);
+                        var percentage = (remaining / timeoutSeconds) * 100;
                         var timerClass = remaining < 10 ? "timer-warning" : "";
 
                         <div class="pending-timer @timerClass">
@@ -351,6 +352,40 @@
                 </div>
             }
 
+            <!-- Game Variant Selection (Host Only, Pre-Game) -->
+            @if (!GameService.CurrentGame.GameStarted && GameService.IsHost())
+            {
+                <div class="variant-selection-section">
+                    <h3>🎮 Game Variant</h3>
+                    <div class="variant-selector">
+                        <select @bind="_selectedVariant" class="variant-select">
+                            <option value="Standard">⚔️ Standard - Classic Coup (2 coins, 2 influence, 30s)</option>
+                            <option value="Speed">⚡ Speed Coup - Fast paced (2 coins, 2 influence, 15s)</option>
+                            <option value="Rich">💰 Rich Mode - Extra coins (5 coins, 2 influence, 30s)</option>
+                            <option value="Chaos">🔥 Chaos Mode - High stakes (3 coins, 1 influence, 20s)</option>
+                        </select>
+                    </div>
+                    <div class="variant-description">
+                        @if (_selectedVariant == "Standard")
+                        {
+                            <p>Classic Coup rules: Start with 2 coins and 2 influence cards. 30 seconds per action.</p>
+                        }
+                        else if (_selectedVariant == "Speed")
+                        {
+                            <p>Fast-paced gameplay: Reduced 15-second timer. Quick decisions required!</p>
+                        }
+                        else if (_selectedVariant == "Rich")
+                        {
+                            <p>Economic warfare: Start with 5 coins for earlier Coups and Assassinations.</p>
+                        }
+                        else if (_selectedVariant == "Chaos")
+                        {
+                            <p>High-risk chaos: Only 1 influence, 3 coins, and 20-second timer. One mistake ends it!</p>
+                        }
+                    </div>
+                </div>
+            }
+
             <!-- Game Controls -->
             <div class="game-controls">
                 @if (!GameService.CurrentGame.GameStarted && GameService.IsHost())
@@ -519,6 +554,9 @@
     private string _selectedDifficulty = "Medium";
     private string _selectedPersonality = "Balanced";
 
+    // Variant state
+    private string _selectedVariant = "Standard";
+
     protected override async Task OnInitializedAsync()
     {
         GameService.OnGameStateChanged += OnGameStateChangedHandler;
@@ -592,7 +630,7 @@
     {
         try
         {
-            await GameService.StartGameAsync(GameService.CurrentGame.GameId);
+            await GameService.StartGameAsync(GameService.CurrentGame.GameId, _selectedVariant);
         }
         catch (Exception ex)
         {
