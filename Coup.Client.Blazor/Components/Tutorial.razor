@@ -1,0 +1,119 @@
+@using Coup.Shared
+@using Coup.Client.Blazor.Services
+@inject TutorialService TutorialService
+
+@if (TutorialService.IsActive && TutorialService.CurrentStep != null)
+{
+    <div class="tutorial-overlay">
+        <div class="tutorial-backdrop" @onclick="() => {}"></div>
+
+        <div class="tutorial-modal">
+            <!-- Progress Bar -->
+            <div class="tutorial-progress">
+                <div class="tutorial-progress-bar" style="width: @GetProgressPercentage()%"></div>
+            </div>
+
+            <!-- Step Counter -->
+            <div class="tutorial-step-counter">
+                Step @(TutorialService.Progress.CurrentStep + 1) of @TutorialService.Progress.TotalSteps
+            </div>
+
+            <!-- Content -->
+            <div class="tutorial-content">
+                <h2 class="tutorial-title">@TutorialService.CurrentStep.Title</h2>
+
+                <div class="tutorial-description">
+                    @foreach (var line in TutorialService.CurrentStep.Description.Split('\n'))
+                    {
+                        <p>@line</p>
+                    }
+                </div>
+
+                @if (TutorialService.CurrentStep.Tips.Any())
+                {
+                    <div class="tutorial-tips">
+                        <h4>💡 Tips:</h4>
+                        <ul>
+                            @foreach (var tip in TutorialService.CurrentStep.Tips)
+                            {
+                                <li>@tip</li>
+                            }
+                        </ul>
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(TutorialService.CurrentStep.ActionRequired))
+                {
+                    <div class="tutorial-action-required">
+                        <strong>@TutorialService.CurrentStep.ActionRequired</strong>
+                    </div>
+                }
+            </div>
+
+            <!-- Navigation Buttons -->
+            <div class="tutorial-navigation">
+                @if (TutorialService.Progress.CurrentStep > 0)
+                {
+                    <button class="btn btn-secondary" @onclick="PreviousStep">
+                        ← Previous
+                    </button>
+                }
+
+                <button class="btn btn-outline" @onclick="SkipTutorial">
+                    Skip Tutorial
+                </button>
+
+                @if (TutorialService.Progress.CurrentStep < TutorialService.Progress.TotalSteps - 1)
+                {
+                    <button class="btn btn-primary" @onclick="NextStep">
+                        Next →
+                    </button>
+                }
+                else
+                {
+                    <button class="btn btn-success" @onclick="CompleteTutorial">
+                        Start Playing! 🎮
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        TutorialService.OnTutorialStateChanged += StateHasChanged;
+    }
+
+    private void NextStep()
+    {
+        TutorialService.NextStep();
+    }
+
+    private void PreviousStep()
+    {
+        TutorialService.PreviousStep();
+    }
+
+    private void SkipTutorial()
+    {
+        TutorialService.SkipTutorial();
+    }
+
+    private void CompleteTutorial()
+    {
+        TutorialService.SkipTutorial(); // Complete and close
+    }
+
+    private double GetProgressPercentage()
+    {
+        if (TutorialService.Progress.TotalSteps == 0) return 0;
+        return ((double)(TutorialService.Progress.CurrentStep + 1) / TutorialService.Progress.TotalSteps) * 100;
+    }
+
+    public void Dispose()
+    {
+        TutorialService.OnTutorialStateChanged -= StateHasChanged;
+    }
+}
