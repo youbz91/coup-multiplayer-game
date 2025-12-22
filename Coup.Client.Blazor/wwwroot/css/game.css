@@ -1275,6 +1275,35 @@
     }
 }
 
+/* Victory Actions */
+.victory-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 40px;
+}
+
+.victory-btn {
+    min-width: 180px;
+    padding: 15px 30px;
+    font-size: 1.1em;
+    font-weight: bold;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.victory-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4);
+}
+
+.victory-btn:active {
+    transform: translateY(-1px);
+}
+
 /* Touch device optimizations */
 @media (hover: none) and (pointer: coarse) {
     /* Remove hover effects on touch devices */

@@ -3,6 +3,7 @@
 @using Coup.Client.Blazor.Services
 @inject GameService GameService
 @inject AudioService AudioService
+@inject StatisticsService StatisticsService
 @inject NavigationManager Navigation
 @implements IDisposable
 
@@ -520,6 +521,13 @@
                         <span class="stat-value">@(isWinner ? "Winner" : "Defeated")</span>
                     </div>
                 </div>
+                <div class="victory-actions">
+                    @if (GameService.IsHost())
+                    {
+                        <button @onclick="Rematch" class="btn btn-primary btn-lg victory-btn">🔄 Rematch</button>
+                    }
+                    <button @onclick="LeaveGame" class="btn btn-secondary btn-lg victory-btn">🚪 Leave Game</button>
+                </div>
             </div>
         </div>
     }
@@ -557,6 +565,10 @@
     // Variant state
     private string _selectedVariant = "Standard";
 
+    // Statistics tracking state
+    private bool _statsRecorded = false;
+    private DateTime? _gameStartTime = null;
+
     protected override async Task OnInitializedAsync()
     {
         GameService.OnGameStateChanged += OnGameStateChangedHandler;
@@ -567,6 +579,9 @@
 
         await GameService.ConnectAsync();
 
+        // Load player statistics
+        await StatisticsService.LoadStatisticsAsync();
+
         // Start UI refresh timer for countdown updates
         _uiTimer = new System.Threading.Timer(_ =>
         {
@@ -576,6 +591,24 @@
 
     private void OnGameStateChangedHandler()
     {
+        // Track when game starts
+        if (GameService.CurrentGame.GameStarted && !_gameStartTime.HasValue)
+        {
+            _gameStartTime = DateTime.UtcNow;
+            _statsRecorded = false;
+        }
+
+        // Track when game ends and record statistics
+        if (GameService.CurrentGame.GameEnded && !_statsRecorded && _gameStartTime.HasValue)
+        {
+            _statsRecorded = true;
+            var duration = DateTime.UtcNow - _gameStartTime.Value;
+            var won = GameService.CurrentGame.WinnerName == GameService.MyName;
+            var turns = GameService.CurrentGame.TurnCount;
+
+            _ = StatisticsService.RecordGameAsync(won, turns, duration);
+        }
+
         // Trigger animations and sounds based on changes
         var me = GameService.GetMe();
         if (me != null)
@@ -643,11 +676,22 @@
         try
         {
             await GameService.RematchAsync(GameService.CurrentGame.GameId);
+            _gameStartTime = null;
+            _statsRecorded = false;
         }
         catch (Exception ex)
         {
             _errorMessage = $"Error starting rematch: {ex.Message}";
         }
+    }
+
+    private void LeaveGame()
+    {
+        _isInGame = false;
+        _gameStartTime = null;
+        _statsRecorded = false;
+        _errorMessage = "";
+        Navigation.Refresh(true);
     }
 
     private async Task PerformAction(ActionType action, string? targetConnectionId)
@@ -660,6 +704,19 @@
                 Action = action,
                 TargetConnectionId = targetConnectionId
             });
+
+            // Track action statistics
+            await StatisticsService.RecordActionAsync(action);
+
+            // Track role usage when claiming a role
+            if (action == ActionType.Tax)
+                await StatisticsService.RecordRoleAsync(Role.Duke);
+            else if (action == ActionType.Assassinate)
+                await StatisticsService.RecordRoleAsync(Role.Assassin);
+            else if (action == ActionType.Steal)
+                await StatisticsService.RecordRoleAsync(Role.Captain);
+            else if (action == ActionType.Exchange)
+                await StatisticsService.RecordRoleAsync(Role.Ambassador);
         }
         catch (Exception ex)
         {
