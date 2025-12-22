@@ -40,6 +40,8 @@ builder.Services.AddSingleton<Coup.Server.Services.GameActionService>();
 
 // Bot AI services
 builder.Services.AddSingleton<Coup.Server.AI.EasyBotStrategy>();
+builder.Services.AddSingleton<Coup.Server.AI.MediumBotStrategy>();
+builder.Services.AddSingleton<Coup.Server.AI.HardBotStrategy>();
 builder.Services.AddSingleton<Coup.Server.Services.BotActionExecutor>();
 builder.Services.AddSingleton<Coup.Server.Services.BotDecisionEngine>();
 builder.Services.AddHostedService<Coup.Server.Services.BotOrchestrationService>();

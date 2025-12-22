@@ -12,16 +12,36 @@ public class BotDecisionEngine
     private readonly GameStore _store;
     private readonly BotActionExecutor _executor;
     private readonly EasyBotStrategy _easyStrategy;
+    private readonly MediumBotStrategy _mediumStrategy;
+    private readonly HardBotStrategy _hardStrategy;
     private readonly Dictionary<string, List<RevealedCard>> _gameRevealedCards = new();
 
     public BotDecisionEngine(
         GameStore store,
         BotActionExecutor executor,
-        EasyBotStrategy easyStrategy)
+        EasyBotStrategy easyStrategy,
+        MediumBotStrategy mediumStrategy,
+        HardBotStrategy hardStrategy)
     {
         _store = store;
         _executor = executor;
         _easyStrategy = easyStrategy;
+        _mediumStrategy = mediumStrategy;
+        _hardStrategy = hardStrategy;
+    }
+
+    /// <summary>
+    /// Gets the appropriate strategy based on bot difficulty
+    /// </summary>
+    private IBotStrategy GetStrategy(BotDifficulty difficulty)
+    {
+        return difficulty switch
+        {
+            BotDifficulty.Easy => _easyStrategy,
+            BotDifficulty.Medium => _mediumStrategy,
+            BotDifficulty.Hard => _hardStrategy,
+            _ => _easyStrategy
+        };
     }
 
     /// <summary>
@@ -209,17 +229,6 @@ public class BotDecisionEngine
         // Higher coins = can Coup/Assassinate
         // Higher influence = harder to eliminate
         return (player.Coins * 10) + (player.InfluenceCount * 20);
-    }
-
-    private IBotStrategy GetStrategy(BotDifficulty difficulty)
-    {
-        return difficulty switch
-        {
-            BotDifficulty.Easy => _easyStrategy,
-            BotDifficulty.Medium => _easyStrategy, // TODO: Implement MediumBotStrategy
-            BotDifficulty.Hard => _easyStrategy, // TODO: Implement HardBotStrategy
-            _ => _easyStrategy
-        };
     }
 
     /// <summary>
